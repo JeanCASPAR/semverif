@@ -61,12 +61,13 @@ let iterate (module D: Domain.DOMAIN) cfg =
     let prev_env = NodeHash.find_opt node_map arc.arc_dst in
     begin match prev_env with
     | Some prev_env ->
-      NodeHash.replace node_map arc.arc_dst (D.join prev_env new_env);
-      (* new_env is always a subet of prev_env, it is sufficient to check the converse *)
-      if not (D.subset prev_env new_env) then
+      let env = D.join prev_env new_env in
+      NodeHash.replace node_map arc.arc_dst env;
+      (* prev_env is always a subet of new_env, it is sufficient to check the converse *)
+      if not (D.subset env prev_env) then
         Queue.add arc.arc_dst worklist;
     | None ->
-      NodeHash.replace node_map arc.arc_dst new_env;
+      NodeHash.add node_map arc.arc_dst new_env;
       Queue.add arc.arc_dst worklist;
     end;
   in

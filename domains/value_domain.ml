@@ -377,7 +377,7 @@ module Interval: VALUE_DOMAIN = struct
   (* set-theoretic operations *)
   and join x y = match (x, y) with
   | Empty, z | z, Empty -> z
-  | Bounded (a, b), Bounded (c, d) -> Bounded (min a b, max b d)
+  | Bounded (a, b), Bounded (c, d) -> Bounded (min a c, max b d)
 
   and meet x y = match (x, y) with
   | Empty, _ | _, Empty -> Empty
