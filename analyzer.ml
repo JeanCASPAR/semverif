@@ -21,7 +21,17 @@ let doit filename =
   if !Options.verbose then
     Format.printf "%a" Cfg_printer.print_cfg cfg;
   Cfg_printer.output_dot !Options.cfg_out cfg;
-  Iterator.iterate cfg
+  match !Options.domain with
+  | "constants" ->
+    let module D = Domain.Domain (Domain.Vars) (Value_domain.Constant) in
+    Format.printf "Domain: constants@.";
+    Iterator.iterate (module D) cfg
+  | "interval" ->
+    let module D = Domain.Domain (Domain.Vars) (Value_domain.Interval) in
+    Format.printf "Domain: inteval@.";
+    Iterator.iterate (module D) cfg
+  | s -> Format.printf "Unknown domain %s, back to default@." s;
+    Iterator.default_iterate cfg
 
 
 (* parses arguments to get filename *)

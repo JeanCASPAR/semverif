@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 #
 #  Cours "Sémantique et Application à la Vérification de programmes"
