@@ -39,7 +39,7 @@ let iterate (module D: Domain.DOMAIN) cfg =
     let env = NodeHash.find node_map arc.arc_src in
     let new_env = match arc.arc_inst with
     | CFG_assert (b, ext) -> begin
-      let env = D.guard env b in
+      let new_env = D.guard env b in
       let trigger_assert = D.guard env (CFG_bool_unary (Abstract_syntax_tree.AST_NOT, b)) in
       (* TODO: not sure of what to do *)
       if not (D.is_bottom trigger_assert) then
@@ -48,7 +48,7 @@ let iterate (module D: Domain.DOMAIN) cfg =
         Format.fprintf fmt "%a" Errors.pp_err (AssertFalse, ext, b);
         let error_msg = Buffer.contents buf in
         failwith error_msg
-      else env
+      else new_env
     end
     | CFG_assign (var, exp) -> begin
       D.assign env var exp
