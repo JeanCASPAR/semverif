@@ -38,17 +38,8 @@ let iterate (module D: Domain.DOMAIN) cfg =
   let iter_arc arc =
     let env = NodeHash.find node_map arc.arc_src in
     let new_env = match arc.arc_inst with
-    | CFG_assert (b, ext) -> begin
-      let new_env = D.guard env b in
-      let trigger_assert = D.guard env (CFG_bool_unary (Abstract_syntax_tree.AST_NOT, b)) in
-      (* TODO: not sure of what to do *)
-      if not (D.is_bottom trigger_assert) then
-        let buf = Buffer.create 50 in
-        let fmt = Format.formatter_of_buffer buf in
-        Format.fprintf fmt "%a" Errors.pp_err (AssertFalse, ext, b);
-        let error_msg = Buffer.contents buf in
-        failwith error_msg
-      else new_env
+    | CFG_assert (b, _) -> begin
+      D.guard env b
     end
     | CFG_assign (var, exp) -> begin
       D.assign env var exp
@@ -84,11 +75,19 @@ let iterate (module D: Domain.DOMAIN) cfg =
 
   while not (Queue.is_empty worklist) do
     let node = Queue.take worklist in
-    try
-      iter_node node
-    with Failure s ->
-      Format.printf "%s@." s
+    iter_node node
   done;
+
+  List.iter (fun arc ->
+    match arc.arc_inst with
+    | CFG_assert (b, ext) ->
+      let env = NodeHash.find node_map arc.arc_src in
+      let trigger_assert = D.guard env (CFG_bool_unary (Abstract_syntax_tree.AST_NOT, b)) in
+        (* TODO: not sure of what to do *)
+        if not (D.is_bottom trigger_assert) then
+          Format.printf "%a@." Errors.pp_err (AssertFalse, ext, b);
+    | _ -> ()
+  ) cfg.cfg_arcs;
 
   Format.printf "Node values:@   @[<v 0>";
   List.iter (fun node ->
