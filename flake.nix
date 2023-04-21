@@ -213,6 +213,8 @@
               legacyPackages.graphviz 
               # Make
               legacyPackages.gnumake
+
+              ocamlPackages.ocp-indent
             ];
 
             # Tools from packages
