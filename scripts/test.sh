@@ -40,14 +40,17 @@ create_file() {
   file=$1
   filename=$(basename $file)
   file_html="${result_folder}/${filename}.html"
-  cat "scripts/header.html" > $file_html
-  sed -i "s@TITLE@${filename}@" $file_html
-  echo "<h1>${filename}</h1>" >> $file_html
-  echo "<div class=\"c\">" >> $file_html
-  cat $file >> $file_html
-  echo "</div>" >> $file_html
-  file_svg=$(basename ${file})".svg"
-  echo "<img src=\"./${file_svg}\" alt=\"graph\">" >> $file_html
+  if [[ ! -e "$file_html" ]]
+  then
+    cat "scripts/header.html" > $file_html
+    sed -i "s@TITLE@${filename}@" $file_html
+    echo "<h1>${filename}</h1>" >> $file_html
+    echo "<div class=\"c\">" >> $file_html
+    cat $file >> $file_html
+    echo "</div>" >> $file_html
+    file_svg=$(basename ${file})".svg"
+    echo "<img src=\"./${file_svg}\" alt=\"graph\">" >> $file_html
+  fi
 }
 
 end_file() {
@@ -73,7 +76,7 @@ treat_file() {
   col_compl="green"
 
   # first, we compute the expected failures
-  if [[ $expected_folder == "" ]]
+  if [[ "$expected_folder" == "" ]]
   then
     nb_expected=$(grep -n "${patt_ko}" $file| wc -l)
     expected=$(grep -n "${patt_ko}" $file | grep -o "^[0-9]*")
@@ -81,8 +84,8 @@ treat_file() {
     file_folder=$(dirname $file)
     file=$(basename $file)
     res="${file_folder}/${expected_folder}/${file}.log"
-    nb_failures=$(grep "${patt_assert}" $res | wc -l)
-    failures=$(grep "${patt_assert}" $res | grep -o "line [0-9]*" | grep -o "[0-9]*")
+    nb_expected=$(grep "${patt_assert}" $res | wc -l)
+    expected=$(grep "${patt_assert}" $res | grep -o "line [0-9]*" | grep -o "[0-9]*")
   fi
   # then, we compute the failed assertions
   nb_failures=$(grep "${patt_assert}" $log| wc -l)
@@ -185,7 +188,7 @@ treat_examples() {
 		echo -ne "\r\t$file $option $fill"
     opt_replaced=$(echo "${options}" | sed "s/ /_/g")
 		log="${result_folder}/${filename}.${opt_replaced}.txt"
-    echo "<h2><a href=\"../${log}\">${options}</a></h2>" >> $file_html
+    echo "<h2><a href=\"../${log}\">${analyzer} ${options}</a></h2>" >> $file_html
 	 	timeout $max_time $analyzer $options $file > $log 2>&1
 		out=$?
 		if [[ $out -eq 127 ]]
@@ -249,14 +252,18 @@ echo "<h1>Overview</h1>"                          >> $index_html
 echo "<table>"                                    >> $index_html
 total=$(find $bench -iname "*.c" | wc -l)
 solved=0
-treat_examples "bool" "Boolean operations" "--domain interval" ""
 treat_examples "bool" "Boolean operations" "--domain constants" ""
+treat_examples "bool" "Boolean operations" "--domain interval" ""
 treat_examples "constant" "Constants operations" "--domain constants" ""
 treat_examples "constant_loop" "Constants loops" "--domain constants" ""
 treat_examples "constant" "Constants operations (I)" "--domain interval" ""
 treat_examples "interval" "Interval operations" "--domain interval" ""
 treat_examples "constant_loop" "Constants loops (I)" "--domain interval" ""
 treat_examples "interval_loop" "Interval loops" "--domain interval" ""
+#essai ajout
+treat_examples "perso" "ajouts constant" "--domain constants"
+treat_examples "perso" "ajouts intervals" "--domain interval"
+
 echo "</table>"                                   >> $index_html
 echo "</body>"                                    >> $index_html
 echo "</html>"                                    >> $index_html
