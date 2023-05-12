@@ -177,7 +177,16 @@ module Constant: VALUE_DOMAIN = struct
   and bwd_binary x y op r = match op with (* we try to invert op _ y and op x _ *)
   | AST_PLUS -> (meet x (binary r y AST_MINUS), meet y (binary r x AST_MINUS))
   | AST_MINUS -> (meet x (binary r y AST_PLUS), meet y (binary (unary r AST_UNARY_MINUS) x AST_MINUS))
-  | AST_MULTIPLY -> (meet x (binary r y AST_DIVIDE), meet y (binary r x AST_DIVIDE))
+  | AST_MULTIPLY ->
+    let contains_zero = function
+      | Bottom -> false
+      | Top -> true
+      | Int n -> Z.equal n Z.zero in
+    let reverse_one j pivot target =
+      if contains_zero pivot && contains_zero target
+      then j
+      else meet j (binary target pivot AST_DIVIDE) in
+    (reverse_one x y r, reverse_one y x r)
   | AST_DIVIDE -> (meet x (binary r y AST_MULTIPLY), meet y (binary x r AST_DIVIDE))
   | AST_MODULO -> (x, y) (* can't figure out a better approximation *)
 
