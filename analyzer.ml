@@ -23,12 +23,12 @@ let doit filename =
   Cfg_printer.output_dot !Options.cfg_out cfg;
   match !Options.domain with
   | "constants" ->
-    let module D = Domain.Domain (Domain.Vars) (Value_domain.Constant) in
+    let module D = Domain.Domain (Domain.Vars) (Domain.Consts) (Value_domain.Constant) in
     Format.printf "Domain: constants@.";
     Iterator.iterate (module D) cfg
   | "interval" ->
-    let module D = Domain.Domain (Domain.Vars) (Value_domain.Interval) in
-    Format.printf "Domain: inteval@.";
+    let module D = Domain.Domain (Domain.Vars) (Domain.Consts) (Value_domain.Interval) in
+    Format.printf "Domain: interval@.";
     Iterator.iterate (module D) cfg
   | s -> Format.printf "Unknown domain %s, back to default@." s;
     Iterator.default_iterate cfg

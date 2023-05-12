@@ -19,6 +19,14 @@ module Vars: VARS = struct
   let support = ref []
 end
 
+module type CONSTS = sig
+  val support : Z.t list ref
+end
+
+module Consts: CONSTS = struct
+  let support = ref []
+end
+
 (*
   Signature of abstract domains representing sets of envrionments
   (for instance: a map from variable to their bounds).
@@ -27,6 +35,7 @@ end
 module type DOMAIN =
   sig
     module Vars: VARS
+    module Consts: CONSTS
 
     (* type of abstract elements *)
     (* an element of type t abstracts a set of mappings from variables
@@ -39,9 +48,6 @@ module type DOMAIN =
 
     (* empty set of environments *)
     val bottom: unit -> t
-
-    (* all variables assigned to top *)
-    val top: unit -> t
 
     (* assign an integer expression to a variable *)
     val assign: t -> var -> int_expr -> t
@@ -73,8 +79,9 @@ module type DOMAIN =
   end
 
 
-module Domain (Vars: VARS) (V: Value_domain.VALUE_DOMAIN): DOMAIN = struct
+module Domain (Vars: VARS) (Consts: CONSTS) (V: Value_domain.VALUE_DOMAIN): DOMAIN = struct
   module Vars = Vars
+  module Consts = Consts
 
   type t = V.t VarMap.t
 
@@ -86,10 +93,6 @@ module Domain (Vars: VARS) (V: Value_domain.VALUE_DOMAIN): DOMAIN = struct
   (* empty set of environments *)
   and bottom () = List.fold_left (fun env v ->
     VarMap.add v V.bottom env
-  ) VarMap.empty !Vars.support
-
-  and top () = List.fold_left (fun env v ->
-    VarMap.add v V.top env
   ) VarMap.empty !Vars.support
 
   and eval_int e env = match e with
@@ -189,7 +192,7 @@ module Domain (Vars: VARS) (V: Value_domain.VALUE_DOMAIN): DOMAIN = struct
   and widen env1 env2 = List.fold_left (fun env v ->
     let x = VarMap.find v env1 in
     let y = VarMap.find v env2 in
-    VarMap.add v (V.widen x y) env
+    VarMap.add v (V.widen !Consts.support x y) env
   ) VarMap.empty !Vars.support
 
   (* narrowing *)
