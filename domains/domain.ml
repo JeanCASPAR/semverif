@@ -12,11 +12,16 @@ open! Cfg
 (* Signature for the variables *)
 
 module type VARS = sig
-  val support : var list ref
+  val get_vars : unit -> var list
+  val add_var : var -> unit
 end
 
 module Vars: VARS = struct
   let support = ref []
+  let get_vars () =
+    !support
+  let add_var var =
+    support := var :: !support
 end
 
 (*
@@ -81,16 +86,16 @@ module Domain (Vars: VARS) (V: Value_domain.VALUE_DOMAIN): DOMAIN = struct
   (* initial environment, with all variables initialized to 0 *)
   let rec init () = List.fold_left (fun env v ->
     VarMap.add v (V.const Z.zero) env
-  ) VarMap.empty !Vars.support
+  ) VarMap.empty (Vars.get_vars ())
 
   (* empty set of environments *)
   and bottom () = List.fold_left (fun env v ->
     VarMap.add v V.bottom env
-  ) VarMap.empty !Vars.support
+  ) VarMap.empty (Vars.get_vars ())
 
   and top () = List.fold_left (fun env v ->
     VarMap.add v V.top env
-  ) VarMap.empty !Vars.support
+  ) VarMap.empty (Vars.get_vars ())
 
   and eval_int e env = match e with
   | CFG_int_unary (op, e) ->
@@ -221,4 +226,45 @@ module Domain (Vars: VARS) (V: Value_domain.VALUE_DOMAIN): DOMAIN = struct
     ) env;
     Format.pp_close_box fmt ();
     Format.pp_print_string fmt "}"
+end
+
+module AVars: VARS = struct
+  open Apron
+
+  let env =
+    Environment.make [||] [||] |> ref
+
+  let map =
+    Hashtbl.create 17
+  
+  let add_var var =
+    let name = Format.sprintf "%s(%d)" var.var_name var.var_id in
+    let avar = Apron.Var.of_string name in
+    Hashtbl.replace map name var;
+    env := Environment.add !env [|avar|] [| |]
+      
+  let get_vars () =
+    let int_vars, _ = Environment.vars !env in
+    int_vars |> Array.to_list |> List.map (fun var -> Apron.Var.to_string var |> Hashtbl.find map)
+end
+
+module type MANAGER = sig
+  type t
+    
+end
+
+module ApronDomain (Manager: MANAGER): DOMAIN = struct
+  open Apron
+
+  module Vars = AVars
+
+  type man = Polka.loose Polka.t
+  let manager = Polka.manager_alloc_loose ()
+      
+  type t = man Abstract1.t
+  
+  let init () = ()
+
+  
+  
 end

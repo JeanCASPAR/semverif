@@ -210,7 +210,8 @@
               ocamlPackages.apron
               ocamlPackages.camlidl
               legacyPackages.mpfr
-              legacyPackages.graphviz 
+              legacyPackages.graphviz
+              ocamlPackages.apron
               # Make
               legacyPackages.gnumake
 
