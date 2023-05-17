@@ -30,6 +30,10 @@ let doit filename =
     let module D = Domain.Domain (Domain.Vars) (Value_domain.Interval) in
     Format.printf "Domain: inteval@.";
     Iterator.iterate (module D) cfg
+  | "poly" ->
+    let module D = Domain.ApronDomain (Domain.PolySettings) in
+    print_endline "Domain: polyhedra";
+    Iterator.iterate (module D) cfg
   | s -> Format.printf "Unknown domain %s, back to default@." s;
     Iterator.default_iterate cfg
 
