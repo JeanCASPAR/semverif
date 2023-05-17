@@ -240,8 +240,9 @@ let rec int_expr (env:env) (expr:Abstract_syntax_tree.int_expr)
              (consider the case where the function is called twice in the expression)
            *)
           let tmp = create_var ("__ret_"^id) x var.var_type in
+          let env2 = add_to_vars env1 tmp in
           let ass = CFG_assign (tmp, CFG_int_var var) in
-          add_to_vars env1 var, inst@[ass,x], CFG_int_var tmp
+          add_to_vars env2 var, inst@[ass,x], CFG_int_var tmp
       )
 
 
@@ -279,17 +280,24 @@ and call (env:env) ((id,x):id ext) (exprs:Abstract_syntax_tree.int_expr ext list
     with Not_found -> failwith (Printf.sprintf "unknown function %s at %s" id (string_of_extent x))
   in
   (* match formal and actual arguments *)
-  let rec doargs env inst args = match args with
-  | [],[] -> env, inst
+  let rec doargs env inst tmp_vars args = match args with
+  | [],[] -> env, inst, tmp_vars
   | var::rest1, (expr,x1)::rest2 ->
       (* translate argument binding to assignment *)
       let env1, before, e1 = int_expr env expr in
-      doargs env1 (before @ [CFG_assign (var,e1), x1] @ inst) (rest1, rest2)
+      (* create temporary variable so the formal argument is not overwritten in a subexpression *)
+      let tmp = create_var ("__tmp_"^var.var_name) x1 var.var_type in
+      let env2 = add_to_vars env1 tmp in
+      doargs env2 (before @ [CFG_assign (tmp,e1), x1] @ inst) ((tmp, var, x1) :: tmp_vars) (rest1, rest2)
   | _ ->
       failwith (Printf.sprintf "wrong number of arguments for function %s at %s" id (string_of_extent x))
   in
-  let env1, inst = doargs env [CFG_call f, x] (f.func_args,exprs) in
-  env1, inst, f
+  let env1, inst, tmp_vars = doargs env [] [] (f.func_args,exprs) in
+  let env2, inst2 = List.fold_left
+    (fun (env, inst) (tmp, var, x) ->
+      (env, (inst @ [ (CFG_assign (var, CFG_int_var tmp), x)]))
+    ) (env1, inst) tmp_vars in
+  env2, inst2 @ [CFG_call f, x], f
 
 
 (* Variable declarations.

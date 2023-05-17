@@ -406,16 +406,18 @@ module Interval: VALUE_DOMAIN = struct
     let y = min b d in
     if not (leq x y) then Empty else Bounded (x, y)
 
-  and find_low l a =
+  (* find max {t in l | t <= c} *)
+  and find_low l c =
     List.fold_left (fun low t ->
-      if leq (Int t) a
+      if leq (Int t) c
       then max low (Int t)
       else low
     ) NegInfinity l
 
-  and find_high l b =
+  (* find min {t in l | d <= t} *)
+  and find_high l d =
     List.fold_left (fun high t ->
-      if leq b (Int t)
+      if leq d (Int t)
       then min high (Int t)
       else high
     ) PosInfinity l
@@ -424,16 +426,21 @@ module Interval: VALUE_DOMAIN = struct
   and widen l x y = match (x, y) with
   | Empty, z | z, Empty -> z
   | Bounded (a, b), Bounded (c, d) ->
-    let low = find_low l a in
-    let high = find_high l b in
-    let u = if le c a
-      then low
-      else a
+    let low = find_low l c in
+    let high = find_high l d in
+    let u = if le a c
+      then a
+      else low
     in
-    let v = if le b d
-      then high
-      else b
+    let v = if le d b
+      then b
+      else high
     in
+    (*
+    List.iter (fun c -> Format.printf "const : %a@." Z.pp_print c) l;
+    Format.printf "low : %a, high : %a@." print_bound low print_bound high;
+    Format.printf "widen %a %a = %a@."
+    print x print y print (Bounded (u, v));*)
     (* we always have u <= v *)
     Bounded (u, v)
 

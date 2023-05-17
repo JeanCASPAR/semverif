@@ -105,6 +105,7 @@ module BetterIterator (D: Domain.DOMAIN): ITERATOR = struct
     and iter_node func_id node =
       if not visited.(node.node_id)
       then begin
+        visited.(node.node_id) <- true;
         func_nodes.(func_id) <- node :: func_nodes.(func_id);
         List.iter (iter_arc func_id) node.node_out;
       end
@@ -114,16 +115,12 @@ module BetterIterator (D: Domain.DOMAIN): ITERATOR = struct
     (func_head, func_nodes, func_arcs)
 
 
-  let call_fun func args node_map arcs cycle_head func_head func_nodes func_arcs =
+  let rec call_fun func init_env node_map arcs cycle_head func_head func_nodes func_arcs =
     (* initialize all nodes to bottom except the first
        it is safe to do so because functions are not recursive *)
     List.iter (fun node ->
       NodeHash.replace node_map node (D.bottom ())
     ) func_nodes.(func.func_id);
-    let init_env = List.fold_left2 (fun env var arg ->
-      D.assign env var arg
-    ) (D.init ()) func.func_args args
-    in
     NodeHash.replace node_map func_head.(func.func_id) init_env;
 
     let modified = ref true in
@@ -135,9 +132,13 @@ module BetterIterator (D: Domain.DOMAIN): ITERATOR = struct
         D.guard src_env b
       end
       | CFG_assign (var, exp) -> begin
+       (*Format.printf "var: %a = %a" Cfg_printer.print_var var Cfg_printer.print_int_expr exp;
+        let x = D.assign src_env var exp in Format.printf ";@."; x*)
         D.assign src_env var exp
       end
-      | CFG_call _ -> src_env
+      | CFG_call func ->
+        call_fun func src_env node_map arcs cycle_head func_head func_nodes func_arcs;
+        NodeHash.find node_map func.func_exit
       | CFG_guard b -> D.guard src_env b
       | CFG_skip _ -> src_env
       in
@@ -147,6 +148,8 @@ module BetterIterator (D: Domain.DOMAIN): ITERATOR = struct
       if not (D.subset dst_env old_env) then
         modified := true;
       arcs.(arc.arc_id) <- dst_env;
+      (*Format.printf "arc %d => %d@." arc.arc_src.node_id arc.arc_dst.node_id;
+      Format.printf "%a %a %a@." D.print src_env D.print old_env D.print dst_env*)
     in
 
     let iter_node node =
@@ -157,10 +160,17 @@ module BetterIterator (D: Domain.DOMAIN): ITERATOR = struct
       ) old_env node.node_in in
       (* widening ? *)
       let new_env = if cycle_head.(node.node_id)
+      (*
+widen { i@1 ↦ [0; 0]; } { i@1 ↦ [0; 1]; } = { i@1 ↦ [0; 0]; }
+faulty
+      *)
       then D.widen old_env in_env
       else in_env
+      in
+      (*Format.printf "node %d@." node.node_id;
+      Format.printf "%a %a %a@." D.print old_env D.print in_env D.print new_env;*)
 
-      in NodeHash.replace node_map node new_env
+      NodeHash.replace node_map node new_env
     
     in while !modified do
       modified := false;
@@ -179,7 +189,14 @@ module BetterIterator (D: Domain.DOMAIN): ITERATOR = struct
     ) func_arcs.(func.func_id)
 
   let iterate cfg =
-    Format.printf "in iterate";
+    (*D.Vars.support := cfg.cfg_vars;
+    D.Consts.support := find_consts cfg;
+    let env1 = D.init () in
+    let env2 = D.assign env1 (List.hd cfg.cfg_vars) (CFG_int_rand (Z.zero, Z.one)) in
+    let env3 = D.widen env1 env2 in
+    let env4 = D.widen env2 env1 in
+    Format.printf "%a %a %a %a@." D.print env1 D.print env2 D.print env3 D.print env4;
+    let () = failwith "" in*)
     D.Vars.support := cfg.cfg_vars;
     D.Consts.support := find_consts cfg;
     let cycle_head = find_cycle_head cfg in
@@ -194,9 +211,10 @@ module BetterIterator (D: Domain.DOMAIN): ITERATOR = struct
     let (func_head, func_nodes, func_arcs) = partition_fun cfg in
 
     (* initialize entries to 0 *)
-    NodeHash.add node_map cfg.cfg_init_entry (D.init ());
+    let init_env = D.init () in
+    NodeHash.add node_map cfg.cfg_init_entry init_env;
     let main = List.find (fun func -> func.func_name = "main") cfg.cfg_funcs in
-    call_fun main [] node_map arcs cycle_head func_head func_nodes func_arcs;
+    call_fun main init_env node_map arcs cycle_head func_head func_nodes func_arcs;
 
     Format.printf "Node values:@   @[<v 0>";
     List.iter (fun node ->
