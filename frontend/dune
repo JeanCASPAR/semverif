@@ -1,7 +1,7 @@
 (library
   (name frontend)
   (wrapped false)
-  (libraries libs zarith menhirLib apron))
+  (libraries libs zarith menhirLib apron apron.polkaMPQ))
 
 ; Special target to generate messages for parser
 (rule

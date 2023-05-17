@@ -1,5 +1,5 @@
 (library
   (name iterator)
   (wrapped false)
-  (libraries libs zarith menhirLib apron frontend domains))
+  (libraries libs zarith menhirLib apron frontend domains apron.polkaMPQ))
 
