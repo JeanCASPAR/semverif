@@ -25,8 +25,8 @@ let default_iterate cfg =
 
 
 let iterate (module D: Domain.DOMAIN) cfg =
-  D.Vars.support := cfg.cfg_vars;
-  let () = Random.self_init () in
+  List.iter D.Vars.add_var cfg.cfg_vars;
+  Random.self_init ();
   let node_map = NodeHash.create (List.length cfg.cfg_nodes) in
   NodeHash.add node_map cfg.cfg_init_entry (D.init ());
   List.iter (
