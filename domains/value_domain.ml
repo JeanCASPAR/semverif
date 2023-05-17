@@ -75,8 +75,8 @@ module type VALUE_DOMAIN =
     val join: t -> t -> t
     val meet: t -> t -> t
 
-    (* widening *)
-    val widen: t -> t -> t
+    (* widening, take a sorted list of thresholds *)
+    val widen: Z.t list -> t -> t -> t
 
     (* narrowing *)
     val narrow: t -> t -> t
@@ -93,7 +93,7 @@ module type VALUE_DOMAIN =
 end
 
 
-module Constant: VALUE_DOMAIN = struct
+module Constant : VALUE_DOMAIN = struct
   type t = Bottom | Top | Int of Z.t
 
   let rec top = Top
@@ -202,8 +202,8 @@ module Constant: VALUE_DOMAIN = struct
   | _, Top -> a
   | Int a, Int b -> if a = b then Int a else Bottom
 
-  and widen _ = assert false
-  and narrow _ = assert false
+  and widen _ = join
+  and narrow _ _ = assert false
 
   and subset a b = match (a, b) with
   | Bottom, _ | _, Top -> true
@@ -271,6 +271,7 @@ module Interval: VALUE_DOMAIN = struct
   let rem x y = sub x (div x y)
 
   let leq x y = max x y = y
+  let le x y = leq x y && not (leq y x)
 
   let rec top = Bounded (NegInfinity, PosInfinity)
 
@@ -304,7 +305,7 @@ module Interval: VALUE_DOMAIN = struct
       let tmp8 = min tmp3 tmp4 in
       Bounded (min tmp6 tmp8, max tmp5 tmp7)
     | AST_DIVIDE ->
-      if leq c (Int (Z.neg Z.one)) && leq (Int Z.one) d
+      if le c (Int Z.zero) && le (Int Z.zero) d
       then Bounded (NegInfinity, PosInfinity)
       else if c = Int Z.zero && d = Int Z.zero
       then Empty
@@ -349,11 +350,11 @@ module Interval: VALUE_DOMAIN = struct
     | AST_LESS_EQUAL ->
       let b' = min b d in
       let c' = max a c in
-      let x' = if leq (add (Int Z.one) b') a
+      let x' = if le b' a
         then Empty
         else Bounded (a, b')
       in
-      let y' = if leq (add (Int Z.one) d) c'
+      let y' = if le d c'
         then Empty
         else Bounded (c', d)
       in
@@ -405,8 +406,43 @@ module Interval: VALUE_DOMAIN = struct
     let y = min b d in
     if not (leq x y) then Empty else Bounded (x, y)
 
+  (* find max {t in l | t <= c} *)
+  and find_low l c =
+    List.fold_left (fun low t ->
+      if leq (Int t) c
+      then max low (Int t)
+      else low
+    ) NegInfinity l
+
+  (* find min {t in l | d <= t} *)
+  and find_high l d =
+    List.fold_left (fun high t ->
+      if leq d (Int t)
+      then min high (Int t)
+      else high
+    ) PosInfinity l
+
   (* widening *)
-  and widen _ _ = assert false
+  and widen l x y = match (x, y) with
+  | Empty, z | z, Empty -> z
+  | Bounded (a, b), Bounded (c, d) ->
+    let low = find_low l c in
+    let high = find_high l d in
+    let u = if le a c
+      then a
+      else low
+    in
+    let v = if le d b
+      then b
+      else high
+    in
+    (*
+    List.iter (fun c -> Format.printf "const : %a@." Z.pp_print c) l;
+    Format.printf "low : %a, high : %a@." print_bound low print_bound high;
+    Format.printf "widen %a %a = %a@."
+    print x print y print (Bounded (u, v));*)
+    (* we always have u <= v *)
+    Bounded (u, v)
 
   (* narrowing *)
   and narrow _ _ = assert false

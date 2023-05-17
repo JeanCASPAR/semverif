@@ -12,6 +12,7 @@ open! Cfg
 (* Signature for the variables *)
 
 module type VARS = sig
+  val clear_vars : unit -> unit
   val get_vars : unit -> var list
   val add_var : var -> unit
 end
@@ -22,6 +23,16 @@ module Vars: VARS = struct
     !support
   let add_var var =
     support := var :: !support
+  let clear_vars () =
+    support := []
+end
+
+module type CONSTS = sig
+  val support : Z.t list ref
+end
+
+module Consts: CONSTS = struct
+  let support = ref []
 end
 
 (*
@@ -32,6 +43,7 @@ end
 module type DOMAIN =
   sig
     module Vars: VARS
+    module Consts: CONSTS
 
     (* type of abstract elements *)
     (* an element of type t abstracts a set of mappings from variables
@@ -44,9 +56,6 @@ module type DOMAIN =
 
     (* empty set of environments *)
     val bottom: unit -> t
-
-    (* all variables assigned to top *)
-    val top: unit -> t
 
     (* assign an integer expression to a variable *)
     val assign: t -> var -> int_expr -> t
@@ -78,8 +87,9 @@ module type DOMAIN =
   end
 
 
-module Domain (Vars: VARS) (V: Value_domain.VALUE_DOMAIN): DOMAIN = struct
+module Domain (Vars: VARS) (Consts: CONSTS) (V: Value_domain.VALUE_DOMAIN): DOMAIN = struct
   module Vars = Vars
+  module Consts = Consts
 
   type t = V.t VarMap.t
 
@@ -194,7 +204,7 @@ module Domain (Vars: VARS) (V: Value_domain.VALUE_DOMAIN): DOMAIN = struct
   and widen env1 env2 = List.fold_left (fun env v ->
     let x = VarMap.find v env1 in
     let y = VarMap.find v env2 in
-    VarMap.add v (V.widen x y) env
+    VarMap.add v (V.widen !Consts.support x y) env
   ) VarMap.empty (Vars.get_vars ())
 
   (* narrowing *)
@@ -260,6 +270,10 @@ module AVars: AVARS = struct
 
   let get_env () =
     !env
+
+  let clear_vars () =
+    env  := Environment.make [||] [||];
+    Hashtbl.reset map
 end
 
 module type APRON_SETTNIGS = sig
@@ -289,9 +303,11 @@ module PolySettings = MakeSettings (struct
     let make_manager = Polka.manager_alloc_loose
   end)
 
-module ApronDomain (Settings: APRON_SETTNIGS): DOMAIN = struct
+module ApronDomain (Settings: APRON_SETTNIGS) (Consts: CONSTS): DOMAIN = struct
   open Apron
-      
+
+  module Consts = Consts
+  
   module Vars = AVars
       
   type t = Settings.u Abstract1.t

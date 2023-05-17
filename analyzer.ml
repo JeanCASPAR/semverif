@@ -23,19 +23,23 @@ let doit filename =
   Cfg_printer.output_dot !Options.cfg_out cfg;
   match !Options.domain with
   | "constants" ->
-    let module D = Domain.Domain (Domain.Vars) (Value_domain.Constant) in
+    let module D = Domain.Domain (Domain.Vars) (Domain.Consts) (Value_domain.Constant) in
+    let module I = Iterator.BetterIterator (D) in
     Format.printf "Domain: constants@.";
-    Iterator.iterate (module D) cfg
+    I.iterate cfg
   | "interval" ->
-    let module D = Domain.Domain (Domain.Vars) (Value_domain.Interval) in
+
+    let module D = Domain.Domain (Domain.Vars) (Domain.Consts) (Value_domain.Interval) in
+    let module I = Iterator.BetterIterator (D) in
     Format.printf "Domain: inteval@.";
-    Iterator.iterate (module D) cfg
+    I.iterate cfg
   | "poly" ->
-    let module D = Domain.ApronDomain (Domain.PolySettings) in
+    let module D = Domain.ApronDomain (Domain.PolySettings) (Domain.Consts) in
+    let module I = Iterator.BetterIterator (D) in
     print_endline "Domain: polyhedra";
-    Iterator.iterate (module D) cfg
+    I.iterate cfg
   | s -> Format.printf "Unknown domain %s, back to default@." s;
-    Iterator.default_iterate cfg
+    Iterator.DefaultIterator.iterate cfg
 
 
 (* parses arguments to get filename *)
