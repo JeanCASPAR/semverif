@@ -264,9 +264,6 @@ treat_examples "interval" "Interval operations (P)" "poly" ""
 treat_examples "constant_loop" "Constants loops (P)" "poly" ""
 treat_examples "interval_loop" "Interval loops (P)" "poly" ""
 treat_examples "poly" "Polyhedra operations" "poly" ""
-treat_examples "perso" "Constant Addendum" "constants" ""
-treat_examples "perso" "Interval Addendum" "interval" ""
-treat_examples "perso" "Polyhedra Addendum" "poly" ""
 treat_examples "tests-de-sven" "Les tests de Sven" "poly" ""
 
 echo "</table>"                                   >> $index_html
