@@ -230,7 +230,6 @@ module Domain (Vars: VARS) (Consts: CONSTS) (V: Value_domain.VALUE_DOMAIN): DOMA
 
   (* whether an abstract element is included in another one *)
   and subset env1 env2 = List.for_all (fun v ->
-      Format.printf "%a\n" Cfg_printer.print_var v;
       let x = VarMap.find v env1 in
       let y = VarMap.find v env2 in
       V.subset x y
