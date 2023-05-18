@@ -200,6 +200,8 @@ faulty
     D.Vars.clear_vars ();
     List.iter D.Vars.add_var cfg.cfg_vars;
     D.Consts.support := find_consts cfg;
+    (* initialize entries to 0 *)
+    let init_env = D.init () in
     let cycle_head = find_cycle_head cfg in
     let () = Random.self_init () in
     let node_map = NodeHash.create (List.length cfg.cfg_nodes) in
@@ -211,8 +213,6 @@ faulty
     let arcs = Array.make (List.length (cfg.cfg_arcs) + 1) (D.bottom ()) in
     let (func_head, func_nodes, func_arcs) = partition_fun cfg in
 
-    (* initialize entries to 0 *)
-    let init_env = D.init () in
     NodeHash.add node_map cfg.cfg_init_entry init_env;
     let main = List.find (fun func -> func.func_name = "main") cfg.cfg_funcs in
     call_fun main init_env node_map arcs cycle_head func_head func_nodes func_arcs;
