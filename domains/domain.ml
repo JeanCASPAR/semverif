@@ -311,15 +311,9 @@ module ApronDomain (Settings: APRON_SETTNIGS) (Consts: CONSTS): DOMAIN = struct
   module Vars = AVars
       
   type t = Settings.u Abstract1.t
-  
-  let init () =
-    let env = Vars.get_env () in
-    let (vars, _) = Environment.vars env in
-    let values = Array.make (Array.length vars) (Interval.of_int 0 0) in
-    Abstract1.of_box Settings.manager env vars values
 
-  let bottom () =
-    Abstract1.bottom Settings.manager (Vars.get_env ())
+  let thresholds =
+    Lincons1.array_make (Vars.get_env ()) 0 |> ref
 
   let abinop_of_binop op =
     let open Abstract_syntax_tree in
@@ -330,7 +324,7 @@ module ApronDomain (Settings: APRON_SETTNIGS) (Consts: CONSTS): DOMAIN = struct
     | AST_MULTIPLY -> Mul
     | AST_DIVIDE -> Div
     | AST_MODULO -> Mod
-  
+
   let rec aexpr_of_sexpr = function
     | CFG_int_unary (AST_UNARY_PLUS, e) -> aexpr_of_sexpr e
     | CFG_int_unary (AST_UNARY_MINUS, e) ->
@@ -346,12 +340,62 @@ module ApronDomain (Settings: APRON_SETTNIGS) (Consts: CONSTS): DOMAIN = struct
     | CFG_int_var var ->
       Texpr1.Var (Vars.get_var var)
   
+  let init () =
+    let env = Vars.get_env () in
+    let (vars, _) = Environment.vars env in
+    let values = Array.make (Array.length vars) (Interval.of_int 0 0) in
+    let nb_csts = List.length !Consts.support in
+    let size = 2 * nb_csts * List.length (Vars.get_vars ()) in
+    thresholds := Lincons1.array_make env size;
+    List.iteri (fun i c ->
+        Array.iteri (fun j v ->
+            let index = j*nb_csts + i in
+            let index_leq = 2*index in
+            let index_geq = 2*index+1 in
+            let cst_leq = Z.to_int c |> Coeff.s_of_int in
+            let expr_leq = Linexpr1.make env in
+            Linexpr1.set_coeff expr_leq v (Coeff.s_of_int ~-1);
+            Linexpr1.set_cst expr_leq cst_leq;
+            let const_leq = Lincons1.make expr_leq Lincons1.SUPEQ in
+            let cst_geq = Z.to_int c |> (~-) |> Coeff.s_of_int in
+            let expr_geq = Linexpr1.make env in
+            Linexpr1.set_coeff expr_geq v (Coeff.s_of_int 1);
+            Linexpr1.set_cst expr_geq cst_geq;
+            let const_geq = Lincons1.make expr_geq Lincons1.SUPEQ in
+            Lincons1.array_set !thresholds index_leq const_leq;
+            Lincons1.array_set !thresholds index_geq const_geq
+          )
+          vars
+      ) !Consts.support;
+    (* Format.printf "%a\n" (fun fmt -> Lincons1.array_print fmt) !thresholds; *)
+    Abstract1.of_box Settings.manager env vars values
+
+  let bottom () =
+    Abstract1.bottom Settings.manager (Vars.get_env ())
+  
   let top () =
     Abstract1.top Settings.manager (Vars.get_env ())
+  
+  let contains_zero env e =
+    let e = aexpr_of_sexpr e |> Texpr1.of_expr (Vars.get_env ()) in
+    let int = Abstract1.bound_texpr Settings.manager env e in
+    let zero_int = Interval.of_int 0 0 in
+    Interval.is_leq zero_int int
+      
+  let rec expr_diverges env = function
+    | CFG_int_unary (_, sub_expr) -> expr_diverges env sub_expr
+    | CFG_int_binary (op, left, right) ->
+      expr_diverges env left
+      || expr_diverges env right
+      || (op = AST_DIVIDE && contains_zero env right)
+    | CFG_int_var _ | CFG_int_const _ | CFG_int_rand _ -> false
 
   let assign env var e =
-    let e' = aexpr_of_sexpr e |> Texpr1.of_expr (Vars.get_env ()) in
-    Abstract1.assign_texpr Settings.manager env (Vars.get_var var) e' None
+    if expr_diverges env e then
+      bottom ()
+    else 
+      let e' = aexpr_of_sexpr e |> Texpr1.of_expr (Vars.get_env ()) in
+      Abstract1.assign_texpr Settings.manager env (Vars.get_var var) e' None
 
   let float_of_acst f =
     let open Scalar in
@@ -373,6 +417,8 @@ module ApronDomain (Settings: APRON_SETTNIGS) (Consts: CONSTS): DOMAIN = struct
       else
         Mpfrf.to_float s
 
+  exception Diverges
+  
   let rec guard env b =
     (* Removes negations and all comparison operators that are not present in Apron (including ≠) *)
     let rec purge_unwanted negated expr =
@@ -392,6 +438,8 @@ module ApronDomain (Settings: APRON_SETTNIGS) (Consts: CONSTS): DOMAIN = struct
         else
           CFG_bool_binary (op, purge_unwanted false left, purge_unwanted false right)
       | CFG_compare (op, left, right) ->
+        if expr_diverges env left || expr_diverges env right then
+          raise Diverges;
         let op = if negated then
             match op with
             | AST_EQUAL -> AST_NOT_EQUAL
@@ -440,6 +488,7 @@ module ApronDomain (Settings: APRON_SETTNIGS) (Consts: CONSTS): DOMAIN = struct
       Tcons1.array_set const_array 0 const;
       Abstract1.meet_tcons_array Settings.manager env const_array
     | CFG_bool_unary _ -> failwith "unreachable"
+    | exception Diverges -> bottom ()
 
   let join env env' =
     Abstract1.join Settings.manager env env'
@@ -448,7 +497,7 @@ module ApronDomain (Settings: APRON_SETTNIGS) (Consts: CONSTS): DOMAIN = struct
     Abstract1.meet Settings.manager env env'
 
   let widen env env' =
-    Abstract1.widening Settings.manager env env'
+    Abstract1.widening_threshold Settings.manager env env' !thresholds
 
   let narrow env env' =
     assert false                (* qui supporte le narrowing de toute façon, hein? *)
@@ -461,7 +510,7 @@ module ApronDomain (Settings: APRON_SETTNIGS) (Consts: CONSTS): DOMAIN = struct
       let interval = Vars.get_var var |> Abstract1.bound_variable Settings.manager env in
       let inf = float_of_acst interval.inf |> Float.ceil in
       let sup = float_of_acst interval.sup |> Float.floor in
-      inf <= sup in
+      inf > sup in
     Abstract1.is_bottom Settings.manager env
     || Vars.get_vars () |> List.exists is_var_impossible
 
