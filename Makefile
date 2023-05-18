@@ -4,7 +4,7 @@
 # Josselin Giet 2021
 # Ecole normale supérieure, Paris, France / CNRS / INRIA
 
-.PHONY: all clean cleantest doc compress
+.PHONY: all clean cleantest test open doc compress
 
 all:
 	@rm -f analyzer.exe
@@ -27,3 +27,6 @@ doc: all
 compress: clean
 	@tar -czvf ../project-semantics.tar.gz --exclude=".git*" ../project-semantics
 	@mv ../project-semantics.tar.gz .
+
+open: test
+	firefox results/index.html
