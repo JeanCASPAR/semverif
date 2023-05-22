@@ -390,18 +390,18 @@ module ApronDomain (Settings: APRON_SETTNIGS) (Consts: CONSTS): DOMAIN = struct
   let top () =
     Abstract1.top Settings.manager (Vars.get_env ())
 
-  let contains_zero env e =
+  let is_zero env e =
     let e = aexpr_of_sexpr e |> Texpr1.of_expr (Vars.get_env ()) in
     let int = Abstract1.bound_texpr Settings.manager env e in
     let zero_int = Interval.of_int 0 0 in
-    Interval.is_leq zero_int int
+    Interval.is_leq zero_int int && Interval.is_leq int zero_int
 
   let rec expr_diverges env = function
     | CFG_int_unary (_, sub_expr) -> expr_diverges env sub_expr
     | CFG_int_binary (op, left, right) ->
       expr_diverges env left
       || expr_diverges env right
-      || (op = AST_DIVIDE && contains_zero env right)
+      || (op = AST_DIVIDE && is_zero env right)
     | CFG_int_var _ | CFG_int_const _ | CFG_int_rand _ -> false
 
   let assign env var e =
