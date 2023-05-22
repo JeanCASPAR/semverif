@@ -2,3 +2,6 @@
 /results
 /out.png
 /cfg.dot
+**/*.aux
+**/*.log
+**/*.pdf

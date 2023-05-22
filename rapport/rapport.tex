@@ -1,0 +1,83 @@
+\documentclass{scrartcl}
+\usepackage{cmap}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[utf8]{inputenc}
+\usepackage[french]{babel}
+
+\title{Projet de Sémantique}
+\author{%
+  Jean \textsc{Caspar},
+  Adrien \textsc{Mathieu}
+}
+\date{Dimanche 4 Juin 2023}
+
+\begin{document}
+\maketitle{}
+
+\section*{Introduction}
+Notre analyseur statique prend en charge les fonctions et le domaine relationnel des polyhèdre,
+en plus de la base commune requise. Ces deux extensions sont compatibles, c'est-à-dire que les
+contraintes ne sont pas locales à chaque fonctions mais sont, au contraire, prises en compte par
+l'appelant (et, réciproquement, les contraintes pre-existant à un appel de fonction sont prises
+en compte par l'appelé).\par
+Tous les domaines pris en charge supportent un widening par paliers (sauf le domaine des
+constantes, qui a un widening trivial). Les paliers en question sont
+générés à partir de toutes les constantes trouvées dans le code source.
+
+\section*{Appels de fonction}
+Toutes les fonctions sont non-réentrantes, c'est-à-dire que si une fonction est appelée, elle ne
+peut pas être appelée de nouveau avant de terminer.\par
+L'analyse s'appuie sur cette propriété: quand un n\oe{}ud d'appel à une fonction \(f\) est
+rencontré, la composante connexe de \(f\) est initialisé à \(\bot\), sauf le n\oe{}ud d'entrée
+qui est initialisé avec l'environnement dans lequel se trouvait le n\oe{}ud d'appel à \(f\).
+Puis, cette composante connexe est traitée entièrement. Enfin, l'environnement se trouvant dans
+le dernier n\oe{}ud de la composante connexe est copié en sortie du n\oe{}ud d'appel à \(f\).\par
+Ceci permet de conserver les contraintes ``à travers'' des appels de fonction.\par
+Dans l'exemple \verb|poly/fonction1.c|, de l'information venant des contraintes avant un appel à
+\verb|add| \emph{et} des contraintes venant de \verb|add| est utilisée par l'appelant.\par
+Dans l'exemple \verb|poly/fonction2.c|, c'est l'inverse: l'appelé utilise des contraintes
+obtenues par l'appelant.
+
+\section*{Widening}
+\subsection*{Comment s'effectue le widening}
+Certains n\oe{}uds sont marqués comme nécessitant un widening. Pour ces n\oe{}uds \(n\), quand il faut
+les mettre à jour, l'union des environnements des n\oe{}uds ayant une arrête entrante dans \(n\)
+est calculée, et puis l'environnement de \(n\) est mis à jour par widening de l'ancienne valeur,
+et de l'union calculée.\par
+Aucune latence n'est introduite avant d'effectuer le widening.
+
+\subsection*{Paliers}
+Toutes les constantes trouvées dans le programme à analyser, plus ou moins un, sont utilisées
+pour générer des paliers. Pour les domaines relationnels, toutes les contraintes de la forme
+\(x\leq c\) et \(x\geq c\) sont utilisées comme paliers, pour toute variable \(x\) et toute
+constante \(c\).\par
+L'exemple \verb|constant_loop/constant_loop_1.c| exhibe un cas arbitrairement long à traiter
+sans widening (en remplaçant `10` par un nombre arbitrairement grand), et où un widening sans
+palier est trop brutal (on obtient une erreur de complétude).
+
+\section*{Domaine relationnel}
+L'implémentation des domaines relationnels est basé sur la librairie Apron. La partie que nous
+avons écrite correspond à la ``traduction'' entre l'interface d'Apron et celle de notre
+analyseur. Notons tout de même qu'Apron ne detecte pas très bien les environments bottom: si
+une variable déclarée comme n'ayant que des valeurs entière ne peut avoir que des valeurs
+non-entières (par exemple, \(x\in[1/2, 1/2]\)), Apron ne détectera pas qu'il s'agit d'un
+environment bottom. Ainsi, ce cas est traité de façon ad-hoc dans notre code.
+
+\section*{Notes d'implémentations}
+Pour les domaines non-relationnels \(V\to\mathcal{P(V^\#)}\), où \(V\) est l'ensemble des
+variables et \(\mathcal{V}^\#\) est le domaine abstrait des valeurs, si jamais il n'y a pas de
+variables, il n'existe qu'une seule valeur dans ce domaine, on ne peut donc pas distinguer des
+sections de code qui peuvent s'exécuter de celles qui ne le peuvent pas.\par
+Avant correction, les exemples \verb|constant/constant_div_zero2.c|, \\
+\verb|constant/constant_div_zero3.c| et \verb|constant/constant_div_zero4.c| exhibaient ce
+problème (le premier reportait une failure alors qu'il ne devrait pas). Pour cette raison, une
+variable est ajoutée au moment de l'initialisation si jamais aucun autre variable n'est présente.\par
+De plus, une partie du code est dédié à la détection de divisions par zéro. C'est utile, d'une
+part parce que Apron ne fait pas d'efforts pour ça (notamment, l'exemple
+\verb|constant/constant_div_zero1.c| échoue si l'on ne fait rien, Apron considérant que \(x\) peut
+avoir une valeur quelconque après assignation, alors qu'au contraire, aucune valeur n'est
+possible!), d'autre part parce que cela permet de détecter une possible divergence d'un programme
+même si la division par zéro ne fait pas intervenir de variables.
+
+\end{document}

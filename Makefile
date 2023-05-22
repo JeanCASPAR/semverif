@@ -4,9 +4,11 @@
 # Josselin Giet 2021
 # Ecole normale supérieure, Paris, France / CNRS / INRIA
 
-.PHONY: all clean cleantest test open doc compress
+.PHONY: all build clean cleantest compress doc open rapport test
 
-all:
+all: build rapport
+
+build:
 	@rm -f analyzer.exe
 	@dune build analyzer.exe
 	@ln -sf _build/default/analyzer.exe analyzer
@@ -18,11 +20,19 @@ clean: cleantest
 cleantest:
 	@rm -rf results
 
-test: cleantest all
+test: cleantest build
 	@scripts/test.sh .
 
 doc: all
 	@dune build @doc-private
+
+rapport/%.pdf rapport/%.aux rapport/%.log &: rapport/%.tex
+	lualatex -shell-escape -interaction=batchmode -output-directory=rapport $<
+
+rapport.pdf: rapport/rapport.pdf
+	ln -fs $< $@
+
+rapport: rapport.pdf
 
 compress: clean
 	@tar -czvf ../project-semantics.tar.gz --exclude=".git*" ../project-semantics
