@@ -92,8 +92,13 @@ module Domain (Vars: VARS) (Consts: CONSTS) (V: Value_domain.VALUE_DOMAIN): DOMA
 
   type t = V.t VarMap.t
 
+  let rec coalesce env =
+    if is_bottom env
+    then bottom ()
+    else env
+
   (* initial environment, with all variables initialized to 0 *)
-  let rec init () =
+  and init () =
     if Vars.get_vars () = [] then
       (* Make sure the environment is never empty, otherwise it's impossible to distinguish *)
       (* between bottom and top, so it makes variable-devoid programs fail. *)
@@ -137,7 +142,7 @@ module Domain (Vars: VARS) (Consts: CONSTS) (V: Value_domain.VALUE_DOMAIN): DOMA
   and assign env var e =
     let e = eval_int e env in
     let env = VarMap.add var e env in
-    env
+    env |> coalesce
 
   (* we know that e is abstracted to r,
      what can we deduce about e, and ultimately, about env ? *)
@@ -160,7 +165,7 @@ module Domain (Vars: VARS) (Consts: CONSTS) (V: Value_domain.VALUE_DOMAIN): DOMA
     | CFG_int_rand (a, b) -> if V.is_bottom (V.meet r (V.rand a b)) then bottom () else env
 
   (* filter environments to keep only those satisfying the boolean expression *)
-  and guard env b = match b with
+  and guard env b = begin match b with
     | CFG_bool_unary (AST_NOT, b) ->
       (* simplify *)
       begin match b with
@@ -199,6 +204,7 @@ module Domain (Vars: VARS) (Consts: CONSTS) (V: Value_domain.VALUE_DOMAIN): DOMA
       meet env1 env2
     | CFG_bool_const b -> if b then env else bottom ()
     | CFG_bool_rand -> env
+    end |> coalesce
 
   (* abstract join *)
   and join env1 env2 = List.fold_left (fun env v ->
@@ -213,6 +219,7 @@ module Domain (Vars: VARS) (Consts: CONSTS) (V: Value_domain.VALUE_DOMAIN): DOMA
       let y = VarMap.find v env2 in
       VarMap.add v (V.meet x y) env
     ) VarMap.empty (Vars.get_vars ())
+  |> coalesce
 
   (* widening *)
   and widen env1 env2 = List.fold_left (fun env v ->
@@ -227,6 +234,7 @@ module Domain (Vars: VARS) (Consts: CONSTS) (V: Value_domain.VALUE_DOMAIN): DOMA
       let y = VarMap.find v env2 in
       VarMap.add v (V.narrow x y) env
     ) VarMap.empty (Vars.get_vars ())
+  |> coalesce
 
   (* whether an abstract element is included in another one *)
   and subset env1 env2 = List.for_all (fun v ->

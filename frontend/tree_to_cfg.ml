@@ -285,7 +285,7 @@ and call (env:env) ((id,x):id ext) (exprs:Abstract_syntax_tree.int_expr ext list
   | var::rest1, (expr,x1)::rest2 ->
       (* translate argument binding to assignment *)
       let env1, before, e1 = int_expr env expr in
-      (* create temporary variable so the formal argument is not overwritten in a subexpression *)
+      (* create a temporary variable so the formal argument is not overwritten in a subexpression *)
       let tmp = create_var ("__tmp_"^var.var_name) x1 var.var_type in
       let env2 = add_to_vars env1 tmp in
       doargs env2 (before @ [CFG_assign (tmp,e1), x1] @ inst) ((tmp, var, x1) :: tmp_vars) (rest1, rest2)
