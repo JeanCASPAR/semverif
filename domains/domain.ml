@@ -215,10 +215,10 @@ module Domain (Vars: VARS) (Consts: CONSTS) (V: Value_domain.VALUE_DOMAIN): DOMA
 
   (* abstract meet *)
   and meet env1 env2 = List.fold_left (fun env v ->
-      let x = VarMap.find v env1 in
-      let y = VarMap.find v env2 in
-      VarMap.add v (V.meet x y) env
-    ) VarMap.empty (Vars.get_vars ())
+    let x = VarMap.find v env1 in
+    let y = VarMap.find v env2 in
+    VarMap.add v (V.meet x y) env
+  ) VarMap.empty (Vars.get_vars ())
   |> coalesce
 
   (* widening *)
@@ -230,10 +230,10 @@ module Domain (Vars: VARS) (Consts: CONSTS) (V: Value_domain.VALUE_DOMAIN): DOMA
 
   (* narrowing *)
   and narrow env1 env2 = List.fold_left (fun env v ->
-      let x = VarMap.find v env1 in
-      let y = VarMap.find v env2 in
-      VarMap.add v (V.narrow x y) env
-    ) VarMap.empty (Vars.get_vars ())
+    let x = VarMap.find v env1 in
+    let y = VarMap.find v env2 in
+    VarMap.add v (V.narrow x y) env
+  ) VarMap.empty (Vars.get_vars ())
   |> coalesce
 
   (* whether an abstract element is included in another one *)
