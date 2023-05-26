@@ -325,15 +325,14 @@ module PolySettings = MakeSettings (struct
     let make_manager = Polka.manager_alloc_loose
   end)
 
-module OctaSettings = MakeSettings (struct
-    type u = Oct.t
-    let make_manager = Oct.manager_alloc
-  end)
+module MakeMakeSettings (Chose: sig type t val manager_alloc : unit -> t Apron.Manager.t end) = struct
+  type u = Chose.t
+  let make_manager = Chose.manager_alloc
+end
 
-module BoxSettings = MakeSettings (struct
-    type u = Box.t
-    let make_manager = Box.manager_alloc
-  end)
+module OctaSettings = MakeSettings (MakeMakeSettings (Oct))
+
+module BoxSettings = MakeSettings (MakeMakeSettings (Box))
     
 module ApronDomain (Settings: APRON_SETTNIGS) (Consts: CONSTS): DOMAIN = struct
   open Apron
