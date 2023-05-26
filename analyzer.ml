@@ -25,18 +25,28 @@ let doit filename =
   | "constants" ->
     let module D = Domain.Domain (Domain.Vars) (Domain.Consts) (Value_domain.Constant) in
     let module I = Iterator.BetterIterator (D) in
-    Format.printf "Domain: constants@.";
+    print_endline "Domain: constants";
     I.iterate cfg
   | "interval" ->
 
     let module D = Domain.Domain (Domain.Vars) (Domain.Consts) (Value_domain.Interval) in
     let module I = Iterator.BetterIterator (D) in
-    Format.printf "Domain: inteval@.";
+    print_endline "Domain: inteval";
     I.iterate cfg
   | "poly" ->
     let module D = Domain.ApronDomain (Domain.PolySettings) (Domain.Consts) in
     let module I = Iterator.BetterIterator (D) in
-    print_endline "Domain: polyhedra";
+    print_endline "Domain: polyhedra (apron)";
+    I.iterate cfg
+  | "box" ->
+    let module D = Domain.ApronDomain (Domain.BoxSettings) (Domain.Consts) in
+    let module I = Iterator.BetterIterator (D) in
+    print_endline "Domain: constants (apron)";
+    I.iterate cfg
+  | "oct" ->
+    let module D = Domain.ApronDomain (Domain.OctaSettings) (Domain.Consts) in
+    let module I = Iterator.BetterIterator (D) in
+    print_endline "Domain: octahedra (apron)";
     I.iterate cfg
   | s -> Format.printf "Unknown domain %s, back to default@." s;
     Iterator.DefaultIterator.iterate cfg

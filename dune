@@ -1,4 +1,4 @@
 (executable
   (name analyzer)
-  (libraries libs frontend zarith iterator domains apron apron.polkaMPQ)
+  (libraries libs frontend zarith iterator domains apron apron.polkaMPQ apron.boxMPQ)
   (flags (:standard -warn-error -A)))
